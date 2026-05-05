@@ -1,0 +1,22 @@
+# Dependencies
+/node_modules
+
+# Build output folder
+/dist
+
+# Log files
+npm-debug.log*
+yarn-error.log
+yarn-debug.log
+
+# Vite cache
+.vite/
+
+# Environment variables
+# Ignore all .env files but not the example file
+.env.*
+!.env.example
+
+# Editor and OS-specific files
+.DS_Store
+Thumbs.db

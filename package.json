@@ -1,0 +1,16 @@
+{
+  "name": "amazon-product-discovery-engine-root",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Root launcher: installs both client & server and runs them together",
+  "scripts": {
+    "install-all": "npm --prefix server install && npm --prefix client install",
+    "dev": "npm run dev --workspaces --if-present || (npm --prefix server run dev & npm --prefix client run dev)",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "start": "concurrently -k -n SERVER,CLIENT -c magenta,cyan \"npm --prefix server start\" \"npm --prefix client run dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Amazon Product Discovery Engine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-logo">APD</div>
+                <div>
+                    <h1>Product Discovery</h1>
+                    <p>Amazon UK • AI Ranked</p>
+                </div>
+            </div>
+
+            <nav class="nav">
+                <button class="nav-btn active" data-view="search">🔍 Search &amp; Scrape</button>
+                <button class="nav-btn" data-view="results">📊 Ranked Results</button>
+                <button class="nav-btn" data-view="runs">🕒 Run History</button>
+            </nav>
+
+            <div class="stats-card">
+                <h3>Stats</h3>
+                <div class="stat-row"><span>Total products</span><strong id="stat-total">—</strong></div>
+                <div class="stat-row"><span>Bulk items</span><strong id="stat-bulk">—</strong></div>
+                <div class="stat-row"><span>Avg score</span><strong id="stat-avg">—</strong></div>
+            </div>
+        </aside>
+
+        <main class="main">
+            <!-- SEARCH VIEW -->
+            <section class="view active" id="view-search">
+                <header class="view-header">
+                    <h2>Start a new scrape</h2>
+                    <p>Search Amazon UK, deduplicate, validate with Google AI Studio, and rank by resale potential.</p>
+                </header>
+
+                <div id="config-banner" class="config-banner hidden"></div>
+
+                <div class="mode-toggle">
+                    <button class="mode-btn active" data-mode="keyword">🔍 Keyword</button>
+                    <button class="mode-btn" data-mode="category">📂 Category</button>
+                </div>
+
+                <form id="search-form" class="search-form">
+                    <div class="field" id="field-keyword">
+                        <label>Keyword</label>
+                        <input type="text" id="keyword-input" placeholder="e.g. bulk screws, wireless earbuds, hex keys" />
+                    </div>
+                    <div class="field hidden" id="field-category">
+                        <label>Category</label>
+                        <select id="category-select"></select>
+                    </div>
+                    <div class="field small">
+                        <label>Region</label>
+                        <select id="region-select">
+                            <option value="UK">UK</option>
+                            <option value="US">USA</option>
+                        </select>
+                    </div>
+                    <div class="field small">
+                        <label>Max pages</label>
+                        <input type="number" id="pages-input" value="3" min="1" max="20" />
+                    </div>
+                    <button type="submit" id="scrape-btn">🚀 Run Pipeline</button>
+                </form>
+
+                <div id="pipeline-progress" class="progress hidden">
+                    <div class="progress-bar"><div class="progress-fill"></div></div>
+                    <p id="progress-text">Initializing…</p>
+                </div>
+
+                <div id="scrape-summary" class="summary hidden"></div>
+
+                <div id="scrape-results" class="results-grid"></div>
+            </section>
+
+            <!-- RESULTS VIEW -->
+            <section class="view" id="view-results">
+                <header class="view-header">
+                    <div>
+                        <h2>Top Ranked Products</h2>
+                        <p>All stored products ranked by final resale score.</p>
+                    </div>
+                    <div class="toolbar">
+                        <label>Show top</label>
+                        <select id="top-limit">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100" selected>100</option>
+                            <option value="500">500</option>
+                        </select>
+                        <label>Per page</label>
+                        <select id="page-size">
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="50">50</option>
+                        </select>
+                        <select id="category-filter">
+                            <option value="">All categories</option>
+                            <option value="hardware">Hardware</option>
+                            <option value="electronics">Electronics</option>
+                            <option value="tools">Tools</option>
+                            <option value="office_supplies">Office</option>
+                            <option value="misc">Misc</option>
+                        </select>
+                        <button id="refresh-top">↻ Refresh</button>
+                        <button id="export-btn" class="primary">⬇ Export Excel</button>
+                    </div>
+                </header>
+
+                <div id="results-list" class="results-grid"></div>
+                <nav id="pager" class="pager hidden"></nav>
+            </section>
+
+            <!-- RUNS VIEW -->
+            <section class="view" id="view-runs">
+                <header class="view-header">
+                    <div>
+                        <h2>Scraping Runs</h2>
+                        <p>Track every pipeline execution.</p>
+                    </div>
+                    <div class="toolbar">
+                        <button id="refresh-runs">↻ Refresh</button>
+                    </div>
+                </header>
+                <div id="runs-list" class="runs-list"></div>
+            </section>
+        </main>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
