@@ -96,7 +96,7 @@ class QuantityExtractor {
         
         return {
             isBulk,
-            quantity: quantity || 1,
+            quantity,
             confidence,
             needsAIVerification: confidence < 0.7 && (quantity !== null || hasBulkKeywords)
         };

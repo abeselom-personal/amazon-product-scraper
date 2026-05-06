@@ -121,6 +121,13 @@ module.exports = {
         topN: parseInt(process.env.EXPORT_TOP_N || '100', 10),
         outputPath: process.env.EXPORT_PATH || './exports',
     },
+
+    imageStorage: {
+        enabled: (process.env.ENABLE_LOCAL_IMAGE_STORAGE || 'true') === 'true',
+        storagePath: process.env.LOCAL_IMAGE_STORAGE_PATH || './storage/images',
+        publicBaseUrl: process.env.PUBLIC_BASE_URL || '',
+        maxDownloadBytes: parseInt(process.env.IMAGE_MAX_DOWNLOAD_BYTES || String(8 * 1024 * 1024), 10),
+    },
     
     amazon: {
         domains: {

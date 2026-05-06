@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment files
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Runtime and generated data
+*.log
+*.sqlite
+*.sqlite3
+
+# App generated outputs
+server/exports/
+server/storage/
+server/data/
+
+# Build outputs
+client/dist/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/

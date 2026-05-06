@@ -1,9 +1,17 @@
 const pipeline = require('../modules/pipeline');
 const excelExporter = require('../modules/excel-exporter');
+const imageStorage = require('../modules/image-storage');
 const db = require('../database/db');
 const config = require('../config/config');
 
 class PipelineController {
+
+    getRequestBaseUrl(req) {
+        const forwardedProto = (req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+        const proto = forwardedProto || req.protocol || 'http';
+        const host = req.get('host');
+        return host ? `${proto}://${host}` : '';
+    }
 
     async getConfig(req, res) {
         return res.json({
@@ -118,10 +126,14 @@ class PipelineController {
             const limit = req.query.limit ? parseInt(req.query.limit, 10) : 100;
 
             const products = await pipeline.getTopRankedProducts(limit);
+            const baseUrl = this.getRequestBaseUrl(req);
+            const withLocalLinks = config.imageStorage.enabled
+                ? await imageStorage.attachLocalImageLinksBatch(products, { baseUrl })
+                : products;
 
             return res.json({
-                products,
-                count: products.length
+                products: withLocalLinks,
+                count: withLocalLinks.length
             });
 
         } catch (error) {
@@ -136,8 +148,9 @@ class PipelineController {
     async exportTopProducts(req, res) {
         try {
             const limit = req.query.limit ? parseInt(req.query.limit, 10) : null;
+            const baseUrl = this.getRequestBaseUrl(req);
 
-            const result = await excelExporter.exportTopProducts(limit);
+            const result = await excelExporter.exportTopProducts(limit, { baseUrl });
 
             return res.download(result.filepath, result.filename);
 
@@ -154,8 +167,9 @@ class PipelineController {
         try {
             const { category } = req.params;
             const limit = req.query.limit ? parseInt(req.query.limit, 10) : 100;
+            const baseUrl = this.getRequestBaseUrl(req);
 
-            const result = await excelExporter.exportByCategory(category, limit);
+            const result = await excelExporter.exportByCategory(category, limit, { baseUrl });
 
             return res.download(result.filepath, result.filename);
 

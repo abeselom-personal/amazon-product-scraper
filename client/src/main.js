@@ -253,15 +253,33 @@ function renderProducts(container, products, rankOffset = 0) {
 }
 
 function getImages(p) {
+    if (Array.isArray(p.local_images) && p.local_images.length) {
+        const locals = p.local_images
+            .map((img) => img?.local_url)
+            .filter(Boolean);
+        if (locals.length) return locals;
+    }
+
     if (Array.isArray(p.images) && p.images.length) return p.images;
+    if (p.local_image_url) return [p.local_image_url];
     if (p.image_url) return [p.image_url];
     return [];
+}
+
+function formatPackLabel(p) {
+    const qty = p.quantity_estimate != null && !isNaN(p.quantity_estimate)
+        ? Math.max(0, Number(p.quantity_estimate))
+        : null;
+
+    if (p.is_bulk && (!qty || qty <= 1)) return 'Multipack';
+    if (qty && qty > 1) return `${Math.round(qty)} pcs`;
+    return '1 pc';
 }
 
 function productCard(p, rank) {
     const score = p.final_score;
     const cls = scoreClass(score);
-    const bulkTag = p.is_bulk ? `<span class="tag bulk">📦 Bulk · ${p.quantity_estimate || 1}x</span>` : '';
+    const bulkTag = p.is_bulk ? `<span class="tag bulk">📦 ${formatPackLabel(p)}</span>` : '';
     const primeTag = p.prime_eligible ? `<span class="tag prime">Prime</span>` : '';
     const catTag = p.category ? `<span class="tag cat">${escapeHtml(p.category)}</span>` : '';
     const resellTag = p.ai_is_resellable === 1

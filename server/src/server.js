@@ -1,14 +1,28 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+const path = require('path');
 const setApiRoutes = require('./routes/api.routes');
 const setPipelineRoutes = require('./routes/pipeline.routes');
 const db = require('./database/db');
+const config = require('./config/config');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+if (config.imageStorage.enabled) {
+    const imageStoragePath = path.resolve(process.cwd(), config.imageStorage.storagePath);
+
+    app.use('/files/images', express.static(imageStoragePath));
+
+    app.get('/files/images/:filename/download', (req, res) => {
+        const filename = req.params.filename;
+        const filePath = path.join(imageStoragePath, filename);
+        return res.download(filePath, filename);
+    });
+}
 
 setApiRoutes(app);
 setPipelineRoutes(app);
