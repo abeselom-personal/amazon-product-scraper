@@ -77,12 +77,22 @@ class Pipeline {
             const productIds = await this.processProducts(scrapeResult.products, runId, stats);
 
             console.log(`[PIPELINE] Saved ${stats.new} new, ${stats.updated} updated, ${stats.deduplicated} dedup'd, ${stats.filtered} below-price`);
-            await aiClassifier.initialize();
-            console.log(`[PIPELINE] Enriching products with AI...`);
-            await dataStorage.enrichBatch(productIds);
 
+            // Mark run as completed before AI enrichment (scraping succeeded)
             await this.updateRunStatus(runId, 'completed', stats);
             const runStats = await dataStorage.getRunStatistics(runId);
+
+            // AI enrichment is best-effort - failures shouldn't affect run status
+            try {
+                await aiClassifier.initialize();
+                console.log(`[PIPELINE] Enriching products with AI...`);
+                await dataStorage.enrichBatch(productIds);
+            } catch (aiError) {
+                console.error(`[PIPELINE] AI enrichment failed (non-critical):`, aiError.message);
+                stats.error = `Scraping succeeded but AI enrichment failed: ${aiError.message}`;
+                // Update run with error message but keep status as completed
+                await this.updateRunStatus(runId, 'completed', stats);
+            }
 
             return { runId, keyword, region, stats, runStats, success: true };
         } catch (error) {
@@ -115,12 +125,22 @@ class Pipeline {
             const productIds = await this.processProducts(scrapeResult.products, runId, stats);
 
             console.log(`[PIPELINE] Saved ${stats.new} new, ${stats.updated} updated, ${stats.deduplicated} dup'd, ${stats.filtered} below-price`);
-            await aiClassifier.initialize();
-            console.log(`[PIPELINE] Enriching ${productIds.length} products with AI...`);
-            await dataStorage.enrichBatch(productIds);
 
+            // Mark run as completed before AI enrichment (scraping succeeded)
             await this.updateRunStatus(runId, 'completed', stats);
             const runStats = await dataStorage.getRunStatistics(runId);
+
+            // AI enrichment is best-effort - failures shouldn't affect run status
+            try {
+                await aiClassifier.initialize();
+                console.log(`[PIPELINE] Enriching ${productIds.length} products with AI...`);
+                await dataStorage.enrichBatch(productIds);
+            } catch (aiError) {
+                console.error(`[PIPELINE] AI enrichment failed (non-critical):`, aiError.message);
+                stats.error = `Scraping succeeded but AI enrichment failed: ${aiError.message}`;
+                // Update run with error message but keep status as completed
+                await this.updateRunStatus(runId, 'completed', stats);
+            }
 
             return { runId, category: categoryName, region, stats, runStats, success: true };
         } catch (error) {
