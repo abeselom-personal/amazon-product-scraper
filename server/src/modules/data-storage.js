@@ -325,11 +325,24 @@ class DataStorage {
         const priceWhere = this.buildPriceFilterWhere();
         
         // Filter by enabled categories from config
-        const enabledCategories = config.categories.enabled;
-        const categoryWhere = enabledCategories.length > 0 
-            ? ` AND category IN (${enabledCategories.map(() => '?').join(',')})`
+        const categoryMap = {
+            hardware: 'hardware',
+            electronics: 'electronics',
+            tools: 'tools',
+            office: 'office_supplies',
+            office_supplies: 'office_supplies',
+            misc: 'misc',
+        };
+        const enabledCategories = (config.categories.enabled || [])
+            .map((c) => String(c || '').trim().toLowerCase())
+            .map((c) => categoryMap[c] || c)
+            .filter(Boolean);
+        const normalizedEnabled = Array.from(new Set(enabledCategories));
+
+        const categoryWhere = normalizedEnabled.length > 0 
+            ? ` AND category IN (${normalizedEnabled.map(() => '?').join(',')})`
             : '';
-        const categoryParams = enabledCategories.length > 0 ? enabledCategories : [];
+        const categoryParams = normalizedEnabled.length > 0 ? normalizedEnabled : [];
         
         const products = await db.all(
             `SELECT * FROM products 
