@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+require('dotenv').config();
 const db = require('./database/db');
 const pipeline = require('./modules/pipeline');
 const excelExporter = require('./modules/excel-exporter');
