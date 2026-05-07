@@ -86,9 +86,27 @@ async function loadConfig() {
         const cfg = await api('/config');
         state.config = cfg;
         state.categories = cfg.categories || [];
-        // populate category select
-        const sel = $('#category-select');
-        sel.innerHTML = state.categories.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('') || '<option value="">No categories configured</option>';
+        
+        // Populate category select for scraping
+        const scrapeSel = $('#category-select');
+        scrapeSel.innerHTML = state.categories.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('') || '<option value="">No categories configured</option>';
+        
+        // Populate category filter for results (use lowercase values for API compatibility)
+        const filterSel = $('#category-filter');
+        const categoryOptions = state.categories.map(c => {
+            // Map display names to API-compatible values
+            const valueMap = {
+                'Hardware': 'hardware',
+                'Electronics': 'electronics',
+                'Tools': 'tools',
+                'Office': 'office_supplies',
+                'Misc': 'misc'
+            };
+            const value = valueMap[c.name] || c.name.toLowerCase();
+            return `<option value="${value}">${escapeHtml(c.name)}</option>`;
+        }).join('');
+        filterSel.innerHTML = '<option value="">All categories</option>' + categoryOptions;
+        
         renderConfigBanner();
     } catch (err) {
         console.warn('[CFG] Failed to load config:', err.message);

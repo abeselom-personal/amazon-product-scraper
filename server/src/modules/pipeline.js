@@ -57,6 +57,8 @@ class Pipeline {
                 stats.deduplicated++;
             } else if (saveResult.action === 'skipped_price_filter' || saveResult.action === 'skipped_below_min_price') {
                 stats.filtered++;
+            } else if (saveResult.action === 'skipped_invalid_url') {
+                stats.filtered++;
             }
         }
         return productIds;

@@ -265,7 +265,14 @@ class EnhancedScraper {
             const primeEligible = primeElement.length > 0;
             const asin = productUrl ? this.extractASIN(productUrl) : null;
 
-            if (title) {
+            // Validate URL - skip if missing, empty, or invalid (e.g., just "#")
+            const isValidUrl = productUrl && 
+                               productUrl !== '#' && 
+                               !productUrl.endsWith('#') &&
+                               productUrl.includes('/dp/') &&
+                               asin;
+
+            if (title && isValidUrl) {
                 products.push({
                     title,
                     price,

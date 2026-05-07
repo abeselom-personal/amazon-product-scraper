@@ -53,6 +53,12 @@ class DataStorage {
     }
 
     async saveProduct(product, sourceRunId) {
+        // Validate URL - reject invalid URLs to prevent constraint errors
+        if (!product.url || product.url === '#' || product.url.endsWith('#') || !product.url.includes('/dp/')) {
+            console.log(`[STORAGE] Skipping product with invalid URL: ${product.url}`);
+            return { action: 'skipped_invalid_url', productId: null, reason: 'Invalid URL' };
+        }
+
         const priceFail = this.checkPriceFilter(product);
         if (priceFail) {
             return { action: 'skipped_price_filter', productId: null, reason: priceFail.reason };
@@ -317,12 +323,20 @@ class DataStorage {
 
     async getTopProducts(limit = 100) {
         const priceWhere = this.buildPriceFilterWhere();
+        
+        // Filter by enabled categories from config
+        const enabledCategories = config.categories.enabled;
+        const categoryWhere = enabledCategories.length > 0 
+            ? ` AND category IN (${enabledCategories.map(() => '?').join(',')})`
+            : '';
+        const categoryParams = enabledCategories.length > 0 ? enabledCategories : [];
+        
         const products = await db.all(
             `SELECT * FROM products 
-             WHERE final_score IS NOT NULL${priceWhere.sql}
+             WHERE final_score IS NOT NULL${priceWhere.sql}${categoryWhere}
              ORDER BY final_score DESC 
              LIMIT ?`,
-            [...priceWhere.params, limit]
+            [...priceWhere.params, ...categoryParams, limit]
         );
 
         return products.map(p => this.hydrate(p));
