@@ -7,6 +7,7 @@ const state = {
     topLimit: 100,
     pageSize: 20,
     page: 1,
+    categoryFilterMode: 'ai', // 'ai' | 'scrape'
     category: '',            // results filter
     products: [],
     runs: [],
@@ -44,6 +45,32 @@ function scoreClass(s) {
 function escapeHtml(s) {
     if (s == null) return '';
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function toAiCategoryValue(name) {
+    const valueMap = {
+        Hardware: 'hardware',
+        Electronics: 'electronics',
+        Tools: 'tools',
+        Office: 'office_supplies',
+        Misc: 'misc',
+    };
+    return valueMap[name] || String(name || '').toLowerCase();
+}
+
+function populateCategoryFilterOptions() {
+    const filterSel = $('#category-filter');
+    if (!filterSel) return;
+
+    const options = (state.categories || []).map((c) => {
+        const label = c.name;
+        const value = state.categoryFilterMode === 'scrape' ? label : toAiCategoryValue(label);
+        return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+    }).join('');
+
+    filterSel.innerHTML = '<option value="">All categories</option>' + options;
+    state.category = '';
+    filterSel.value = '';
 }
 
 async function api(path, opts = {}) {
@@ -90,22 +117,8 @@ async function loadConfig() {
         // Populate category select for scraping
         const scrapeSel = $('#category-select');
         scrapeSel.innerHTML = state.categories.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('') || '<option value="">No categories configured</option>';
-        
-        // Populate category filter for results (use lowercase values for API compatibility)
-        const filterSel = $('#category-filter');
-        const categoryOptions = state.categories.map(c => {
-            // Map display names to API-compatible values
-            const valueMap = {
-                'Hardware': 'hardware',
-                'Electronics': 'electronics',
-                'Tools': 'tools',
-                'Office': 'office_supplies',
-                'Misc': 'misc'
-            };
-            const value = valueMap[c.name] || c.name.toLowerCase();
-            return `<option value="${value}">${escapeHtml(c.name)}</option>`;
-        }).join('');
-        filterSel.innerHTML = '<option value="">All categories</option>' + categoryOptions;
+
+        populateCategoryFilterOptions();
         
         renderConfigBanner();
     } catch (err) {
@@ -221,6 +234,12 @@ function renderSummary(data) {
 // ---------- Results view ----------
 $('#top-limit').addEventListener('change', e => { state.topLimit = +e.target.value; state.page = 1; loadTopProducts(); });
 $('#page-size').addEventListener('change', e => { state.pageSize = +e.target.value; state.page = 1; renderResultsPage(); });
+$('#category-filter-mode').addEventListener('change', e => {
+    state.categoryFilterMode = e.target.value === 'scrape' ? 'scrape' : 'ai';
+    state.page = 1;
+    populateCategoryFilterOptions();
+    renderResultsPage();
+});
 $('#category-filter').addEventListener('change', e => { state.category = e.target.value; state.page = 1; renderResultsPage(); });
 $('#refresh-top').addEventListener('click', loadTopProducts);
 $('#export-btn').addEventListener('click', doExport);
@@ -247,7 +266,15 @@ async function loadTopProducts() {
 function renderResultsPage() {
     const list = $('#results-list');
     let items = state.products;
-    if (state.category) items = items.filter(p => p.category === state.category);
+    if (state.category) {
+        if (state.categoryFilterMode === 'scrape') {
+            const selected = String(state.category).toLowerCase();
+            items = items.filter(p => String(p.source_category || '').toLowerCase() === selected);
+        } else {
+            const selected = String(state.category).toLowerCase();
+            items = items.filter(p => String(p.category || '').toLowerCase() === selected);
+        }
+    }
     const total = items.length;
     const pages = Math.max(1, Math.ceil(total / state.pageSize));
     if (state.page > pages) state.page = pages;
