@@ -266,6 +266,35 @@ class PipelineController {
         }
     }
 
+    async exportTopProducts(req, res) {
+        try {
+            const limit = req.query.limit ? parseInt(req.query.limit, 10) : 100;
+            const baseUrl = this.getRequestBaseUrl(req);
+
+            const result = await excelExporter.exportTopProducts(limit, { baseUrl });
+
+            return res.download(result.filepath, result.filename);
+        } catch (error) {
+            console.error('[API] Error in exportTopProducts:', error);
+            return res.status(500).json({ error: 'Failed to export top products', details: error.message });
+        }
+    }
+
+    async exportByCategory(req, res) {
+        try {
+            const { category } = req.params;
+            const limit = req.query.limit ? parseInt(req.query.limit, 10) : 100;
+            const baseUrl = this.getRequestBaseUrl(req);
+
+            const result = await excelExporter.exportByCategory(category, limit, { baseUrl });
+
+            return res.download(result.filepath, result.filename);
+        } catch (error) {
+            console.error('[API] Error in exportByCategory:', error);
+            return res.status(500).json({ error: 'Failed to export category products', details: error.message });
+        }
+    }
+
     async exportByRunId(req, res) {
         try {
             const { runId } = req.params;
@@ -277,7 +306,8 @@ class PipelineController {
                 return res.status(404).json({ error: 'No products found for this run' });
             }
 
-            const result = await excelExporter.exportProducts(products, { baseUrl, filenamePrefix: `run_${runId}` });
+            const filename = `run_${runId.substring(0, 8)}_${new Date().toISOString().substring(0, 10)}.xlsx`;
+            const result = await excelExporter.exportProducts(products, filename, { baseUrl });
 
             return res.download(result.filepath, result.filename);
 

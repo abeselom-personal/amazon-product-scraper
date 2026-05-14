@@ -494,33 +494,93 @@ input, select, button {
 .runs-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 .run-card {
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 16px 18px;
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
-    gap: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.run-card .run-header {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
+    gap: 12px;
 }
-.run-card .keyword {
-    font-weight: 600;
-    font-size: 14px;
-}
-.run-card .subtle {
+.run-card .run-status {
+    padding: 4px 10px;
+    border-radius: 999px;
     font-size: 11px;
-    color: var(--text-dim);
-    display: block;
-    margin-top: 2px;
+    font-weight: 600;
+    text-transform: uppercase;
 }
-.run-card .metric {
+.run-card .run-status.success {
+    background: rgba(34,197,94,0.15);
+    color: #86efac;
+}
+.run-card .run-status.error {
+    background: rgba(239,68,68,0.15);
+    color: #fca5a5;
+}
+.run-card .run-status.pending {
+    background: rgba(245,158,11,0.15);
+    color: #fcd34d;
+}
+.run-card .run-date {
     font-size: 12px;
     color: var(--text-dim);
 }
-.run-card .metric strong { color: var(--text); font-size: 15px; display: block; }
+.run-card .run-details h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+}
+.run-card .run-details p {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin: 0 0 8px 0;
+}
+.run-card .run-stats {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--text-dim);
+}
+.run-card .run-stats span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.run-card .run-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.run-card .run-actions button {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.run-card .run-actions button:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+.run-card .run-actions button.primary {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
 .status-pill {
     padding: 4px 10px;
     border-radius: 999px;
@@ -725,5 +785,4 @@ input, select, button {
     .sidebar { position: static; height: auto; }
     .main { padding: 20px; }
     .search-form { grid-template-columns: 1fr; }
-    .run-card { grid-template-columns: 1fr; gap: 8px; }
 }

@@ -180,7 +180,9 @@ async function loadRuns() {
         }
 
         list.innerHTML = state.runs.map(run => {
-            const date = new Date(run.created_at).toLocaleString();
+            const rawDate = run.started_at || run.created_at;
+            const dateStr = rawDate ? new Date(rawDate).toLocaleString() : 'Unknown date';
+            const date = dateStr === 'Invalid Date' ? (rawDate || 'Unknown date') : dateStr;
             const statusClass = run.status === 'completed' ? 'success' : run.status === 'failed' ? 'error' : 'pending';
             const keyword = run.keyword || run.category || 'Unknown';
             const type = run.run_type || 'keyword';
@@ -201,8 +203,8 @@ async function loadRuns() {
                             <span>Filtered: ${run.products_filtered || 0}</span>
                         </div>
                         <div class="run-actions">
+                            <button class="view-run-btn primary" data-run-id="${run.id}">👁 View Products</button>
                             <button class="export-run-btn" data-run-id="${run.id}">⬇ Export</button>
-                            <button class="view-run-btn" data-run-id="${run.id}">👁 View Products</button>
                         </div>
                     </div>
                 </article>
@@ -224,11 +226,14 @@ async function loadRuns() {
                 const runId = e.target.dataset.runId;
                 try {
                     const products = await api(`/products/run/${runId}?limit=200`);
-                    state.products = products;
+                    const productList = Array.isArray(products) ? products : (products.products || []);
+                    state.products = productList;
                     state.page = 1;
-                    renderProducts($('#results-list'), products);
-                    switchView('results');
-                    toast(`Loaded ${products.length} products from run`, 'success');
+                    // Switch view first, then render
+                    $all('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === 'results'));
+                    $all('.view').forEach(v => v.classList.toggle('active', v.id === 'view-results'));
+                    renderProducts($('#results-list'), productList);
+                    toast(`Loaded ${productList.length} products from run`, 'success');
                 } catch (err) {
                     toast('Failed to load run products', 'error');
                 }
@@ -327,8 +332,8 @@ form.addEventListener('submit', async (e) => {
         renderSummary(data);
 
         // Show all products from the run, not just top products
-        const runProducts = await api(`/products/run/${data.runId}?limit=200`).catch(() => ({ products: [] }));
-        const toShow = runProducts.products || [];
+        const runProducts = await api(`/products/run/${data.runId}?limit=200`).catch(() => []);
+        const toShow = Array.isArray(runProducts) ? runProducts : (runProducts.products || []);
         renderProducts($('#scrape-results'), toShow);
 
         const s = data.stats || {};
