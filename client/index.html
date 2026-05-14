@@ -23,6 +23,7 @@
             <nav class="nav">
                 <button class="nav-btn active" data-view="search">🔍 Search &amp; Scrape</button>
                 <button class="nav-btn" data-view="results">📊 Ranked Results</button>
+                <button class="nav-btn" data-view="lists">📋 My Lists</button>
                 <button class="nav-btn" data-view="runs">🕒 Run History</button>
             </nav>
 
@@ -90,6 +91,7 @@
                     <div class="selection-actions">
                         <button id="select-all">Select All</button>
                         <button id="deselect-all">Deselect All</button>
+                        <button id="bulk-add-to-list">+ Add to List</button>
                         <button id="export-selected" class="primary">Export Selected</button>
                     </div>
                 </div>
@@ -135,6 +137,113 @@
                 <div id="results-list" class="results-grid"></div>
                 <nav id="pager" class="pager hidden"></nav>
             </section>
+
+            <!-- LISTS VIEW -->
+            <section class="view" id="view-lists">
+                <header class="view-header">
+                    <div>
+                        <h2>My Product Lists</h2>
+                        <p>Curated selections for manual review and export.</p>
+                    </div>
+                    <div class="toolbar">
+                        <button id="refresh-lists">↻ Refresh</button>
+                        <button id="create-list-btn" class="primary">+ New List</button>
+                    </div>
+                </header>
+                <div id="lists-container" class="lists-container"></div>
+                <div id="list-detail" class="list-detail hidden">
+                    <header class="list-detail-header">
+                        <div>
+                            <h3 id="list-detail-name">List Name</h3>
+                            <p id="list-detail-desc">Description</p>
+                        </div>
+                        <div class="toolbar">
+                            <button id="back-to-lists">← Back to Lists</button>
+                            <button id="export-list-btn" class="primary">⬇ Export</button>
+                            <button id="delete-list-btn" class="danger">🗑 Delete</button>
+                        </div>
+                    </header>
+                    <div id="list-products" class="results-grid"></div>
+                </div>
+            </section>
+
+            <!-- CREATE LIST MODAL -->
+            <div id="create-list-modal" class="modal hidden">
+                <div class="modal-content">
+                    <header class="modal-header">
+                        <h3>Create New List</h3>
+                        <button class="modal-close" id="close-create-modal">&times;</button>
+                    </header>
+                    <div class="modal-body">
+                        <div class="field">
+                            <label>List Name *</label>
+                            <input type="text" id="new-list-name" placeholder="e.g., High Priority Items" required />
+                        </div>
+                        <div class="field">
+                            <label>Description (optional)</label>
+                            <textarea id="new-list-desc" placeholder="Notes about this list..."></textarea>
+                        </div>
+                    </div>
+                    <footer class="modal-footer">
+                        <button id="cancel-create-list">Cancel</button>
+                        <button id="confirm-create-list" class="primary">Create List</button>
+                    </footer>
+                </div>
+            </div>
+
+            <!-- ADD TO LIST MODAL -->
+            <div id="add-to-list-modal" class="modal hidden">
+                <div class="modal-content">
+                    <header class="modal-header">
+                        <h3>Add to List</h3>
+                        <button class="modal-close" id="close-add-modal">&times;</button>
+                    </header>
+                    <div class="modal-body">
+                        <p id="add-to-list-product-name" class="product-name-preview"></p>
+                        <div class="field">
+                            <label>Select List</label>
+                            <select id="select-list-dropdown">
+                                <option value="">-- Choose a list --</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Notes (optional)</label>
+                            <textarea id="add-to-list-notes" placeholder="Why this product was selected..."></textarea>
+                        </div>
+                    </div>
+                    <footer class="modal-footer">
+                        <button id="cancel-add-to-list">Cancel</button>
+                        <button id="confirm-add-to-list" class="primary">Add to List</button>
+                    </footer>
+                </div>
+            </div>
+
+            <!-- BULK ADD TO LIST MODAL -->
+            <div id="bulk-add-modal" class="modal hidden">
+                <div class="modal-content">
+                    <header class="modal-header">
+                        <h3>Bulk Add to List</h3>
+                        <button class="modal-close" id="close-bulk-modal">&times;</button>
+                    </header>
+                    <div class="modal-body">
+                        <p id="bulk-add-count" class="product-name-preview"></p>
+                        <div class="field">
+                            <label>Select List</label>
+                            <select id="bulk-select-list-dropdown">
+                                <option value="">-- Choose a list --</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Notes (optional, applies to all items)</label>
+                            <textarea id="bulk-add-notes" placeholder="Why these products were selected..."></textarea>
+                        </div>
+                    </div>
+                    <footer class="modal-footer">
+                        <button id="cancel-bulk-add">Cancel</button>
+                        <button id="confirm-bulk-add" class="primary">Add All to List</button>
+                    </footer>
+                </div>
+            </div>
 
             <!-- RUNS VIEW -->
             <section class="view" id="view-runs">

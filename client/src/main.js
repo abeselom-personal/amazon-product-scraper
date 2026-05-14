@@ -11,10 +11,13 @@ const state = {
     category: '',            // results filter
     products: [],
     runs: [],
+    lists: [],
+    currentList: null,
     config: null,
     categories: [],
     skipAI: false,           // skip AI enrichment for faster large-scale scraping
     selectedProductIds: new Set(), // selected products for owner selection
+    productToAddToList: null, // product being added to a list
 };
 
 // ---------- Utilities ----------
@@ -75,8 +78,9 @@ function populateCategoryFilterOptions() {
     filterSel.value = '';
 }
 
-async function api(path, opts = {}) {
-    const res = await fetch(`${API}${path}`, {
+async function api(path, opts = {}, useAbsolutePath = false) {
+    const url = useAbsolutePath ? `/api${path}` : `${API}${path}`;
+    const res = await fetch(url, {
         headers: { 'Content-Type': 'application/json' },
         ...opts,
     });
@@ -94,6 +98,7 @@ function setView(view) {
     $all('.view').forEach(v => v.classList.toggle('active', v.id === `view-${view}`));
     if (view === 'results') loadTopProducts();
     if (view === 'runs') loadRuns();
+    if (view === 'lists') loadLists();
 }
 $all('.nav-btn').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
 
@@ -118,12 +123,39 @@ $('#skip-ai-checkbox')?.addEventListener('change', e => {
 document.addEventListener('change', e => {
     if (e.target.classList.contains('product-checkbox')) {
         const productId = e.target.dataset.id;
+        const card = e.target.closest('.product-card');
         if (e.target.checked) {
             state.selectedProductIds.add(productId);
+            card?.classList.add('selected');
         } else {
             state.selectedProductIds.delete(productId);
+            card?.classList.remove('selected');
         }
         updateSelectionUI();
+    }
+});
+
+// ---------- Add to List button handler ----------
+document.addEventListener('click', e => {
+    if (e.target.classList.contains('add-to-list-btn')) {
+        const card = e.target.closest('.product-card');
+        if (!card) return;
+        
+        const productId = e.target.dataset.productId;
+        const titleEl = card.querySelector('.product-title a');
+        const product = {
+            id: productId,
+            title: titleEl ? titleEl.textContent : 'Unknown Product',
+            url: titleEl ? titleEl.href : '',
+            price: card.querySelector('.product-price')?.textContent || '',
+            image_url: card.querySelector('.carousel-slide img, .product-img img')?.src || ''
+        };
+        
+        // Also try to find full product data from various sources
+        const fullProduct = state.products.find(p => String(p.id) === productId) ||
+                           state.currentList?.products?.find(p => String(p.id) === productId);
+        
+        openAddToListModal(fullProduct || product);
     }
 });
 
@@ -131,6 +163,7 @@ $('#select-all')?.addEventListener('click', () => {
     document.querySelectorAll('.product-checkbox').forEach(cb => {
         cb.checked = true;
         state.selectedProductIds.add(cb.dataset.id);
+        cb.closest('.product-card')?.classList.add('selected');
     });
     updateSelectionUI();
 });
@@ -139,6 +172,7 @@ $('#deselect-all')?.addEventListener('click', () => {
     document.querySelectorAll('.product-checkbox').forEach(cb => {
         cb.checked = false;
         state.selectedProductIds.delete(cb.dataset.id);
+        cb.closest('.product-card')?.classList.remove('selected');
     });
     updateSelectionUI();
 });
@@ -510,9 +544,10 @@ function productCard(p, rank) {
 
     return `
         <article class="product-card" data-id="${p.id}">
-            <label class="product-select">
+            <label class="product-select" title="Click to select this product">
                 <input type="checkbox" class="product-checkbox" data-id="${p.id}" />
                 <span class="product-rank">#${rank}</span>
+                <span class="select-hint">Select</span>
             </label>
             ${score != null ? `<span class="product-score ${cls}">${fmtScore(score)}</span>` : ''}
             ${carousel}
@@ -544,6 +579,7 @@ function productCard(p, rank) {
                     <div class="score-cell"><strong>${fmtScore(p.unit_margin_score)}</strong>Margin</div>
                     <div class="score-cell"><strong>${fmtScore(p.shipping_score)}</strong>Shipping</div>
                 </div>
+                <button class="add-to-list-btn" data-product-id="${p.id}" title="Add to list">+ Add to List</button>
             </div>
         </article>
     `;
@@ -634,6 +670,376 @@ async function updateGlobalStats() {
         $('#stat-avg').textContent = avg ? avg.toFixed(3) : '—';
     } catch (e) { /* silent */ }
 }
+
+// ---------- Lists Management ----------
+async function loadLists() {
+    try {
+        const data = await api('/lists', {}, true);
+        state.lists = data.lists || [];
+        renderLists();
+    } catch (err) {
+        toast('Failed to load lists', 'error');
+    }
+}
+
+function renderLists() {
+    const container = $('#lists-container');
+    const detail = $('#list-detail');
+    
+    // Hide detail view, show lists container
+    detail.classList.add('hidden');
+    container.classList.remove('hidden');
+    
+    if (!state.lists.length) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <h3>No lists yet</h3>
+                <p>Create a list to start curating products for manual review.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = state.lists.map(list => `
+        <article class="list-card" data-id="${list.id}">
+            <div class="list-card-header">
+                <h3>${escapeHtml(list.name)}</h3>
+                <span class="list-item-count">${list.item_count} items</span>
+            </div>
+            ${list.description ? `<p class="list-description">${escapeHtml(list.description)}</p>` : ''}
+            <div class="list-card-meta">
+                <span>Created: ${new Date(list.created_at).toLocaleDateString()}</span>
+                <span>Updated: ${new Date(list.updated_at).toLocaleDateString()}</span>
+            </div>
+            <div class="list-card-actions">
+                <button class="view-list-btn" data-id="${list.id}">View Products</button>
+                <button class="export-list-btn-sm" data-id="${list.id}">Export</button>
+            </div>
+        </article>
+    `).join('');
+    
+    // Add event listeners
+    document.querySelectorAll('.view-list-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => viewListDetail(e.target.dataset.id));
+    });
+    
+    document.querySelectorAll('.export-list-btn-sm').forEach(btn => {
+        btn.addEventListener('click', (e) => exportList(e.target.dataset.id));
+    });
+}
+
+async function viewListDetail(listId) {
+    try {
+        const data = await api(`/lists/${listId}`, {}, true);
+        state.currentList = data.list;
+        renderListDetail();
+    } catch (err) {
+        toast('Failed to load list details', 'error');
+    }
+}
+
+function renderListDetail() {
+    const container = $('#lists-container');
+    const detail = $('#list-detail');
+    const list = state.currentList;
+    
+    if (!list) return;
+    
+    // Show detail view, hide lists container
+    container.classList.add('hidden');
+    detail.classList.remove('hidden');
+    
+    // Update header
+    $('#list-detail-name').textContent = list.name;
+    $('#list-detail-desc').textContent = list.description || `${list.item_count} products in this list`;
+    
+    // Render products
+    const productsContainer = $('#list-products');
+    if (!list.products || !list.products.length) {
+        productsContainer.innerHTML = `
+            <div class="empty-state">
+                <h3>No products in this list</h3>
+                <p>Go to Search & Scrape to add products.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    productsContainer.innerHTML = list.products.map((p, i) => `
+        <article class="product-card" data-id="${p.id}">
+            <div class="list-product-header">
+                <span class="product-rank">#${i + 1}</span>
+                <button class="remove-from-list-btn" data-product-id="${p.id}" title="Remove from list">&times;</button>
+            </div>
+            ${p.image_url ? `<div class="product-img"><img src="${escapeHtml(p.image_url)}" alt="" loading="lazy"/></div>` : `<div class="product-img placeholder">📦</div>`}
+            <div class="product-body">
+                <h3 class="product-title"><a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a></h3>
+                <div class="product-price-row">
+                    <div class="product-price">${fmtMoney(p.price)}</div>
+                    ${p.unit_price ? `<div class="product-unit-price">unit ${fmtMoney(p.unit_price)}</div>` : ''}
+                </div>
+                ${p.list_notes ? `<div class="product-list-notes">📝 ${escapeHtml(p.list_notes)}</div>` : ''}
+                <div class="product-meta">
+                    <span class="tag ${p.category || 'misc'}">${p.category || 'misc'}</span>
+                    ${p.is_bulk ? '<span class="tag bulk">Bulk</span>' : ''}
+                </div>
+            </div>
+        </article>
+    `).join('');
+    
+    // Add event listeners for remove buttons
+    document.querySelectorAll('.remove-from-list-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => removeProductFromList(e.target.dataset.productId));
+    });
+}
+
+async function removeProductFromList(productId) {
+    if (!state.currentList) return;
+    
+    try {
+        await api(`/lists/${state.currentList.id}/products/${productId}`, { method: 'DELETE' }, true);
+        toast('Product removed from list', 'success');
+        // Refresh the list detail view
+        await viewListDetail(state.currentList.id);
+    } catch (err) {
+        toast('Failed to remove product', 'error');
+    }
+}
+
+async function exportList(listId) {
+    try {
+        toast('Exporting list...', 'info');
+        window.location.href = `/api/lists/${listId}/export`;
+    } catch (err) {
+        toast('Failed to export list', 'error');
+    }
+}
+
+// Create List Modal
+$('#create-list-btn')?.addEventListener('click', () => {
+    $('#create-list-modal').classList.remove('hidden');
+    $('#new-list-name').focus();
+});
+
+$('#close-create-modal')?.addEventListener('click', closeCreateModal);
+$('#cancel-create-list')?.addEventListener('click', closeCreateModal);
+
+function closeCreateModal() {
+    $('#create-list-modal').classList.add('hidden');
+    $('#new-list-name').value = '';
+    $('#new-list-desc').value = '';
+}
+
+$('#confirm-create-list')?.addEventListener('click', async () => {
+    const name = $('#new-list-name').value.trim();
+    const description = $('#new-list-desc').value.trim();
+    
+    if (!name) {
+        toast('List name is required', 'error');
+        return;
+    }
+    
+    try {
+        await fetch('/api/lists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, description })
+        }).then(r => r.json());
+        toast('List created successfully', 'success');
+        closeCreateModal();
+        loadLists();
+    } catch (err) {
+        toast('Failed to create list', 'error');
+    }
+});
+
+// List Detail Actions
+$('#back-to-lists')?.addEventListener('click', () => {
+    state.currentList = null;
+    renderLists();
+});
+
+$('#export-list-btn')?.addEventListener('click', () => {
+    if (state.currentList) {
+        exportList(state.currentList.id);
+    }
+});
+
+$('#delete-list-btn')?.addEventListener('click', async () => {
+    if (!state.currentList) return;
+    
+    if (!confirm(`Are you sure you want to delete "${state.currentList.name}"? This cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        await api(`/lists/${state.currentList.id}`, { method: 'DELETE' }, true);
+        toast('List deleted', 'success');
+        state.currentList = null;
+        loadLists();
+    } catch (err) {
+        toast('Failed to delete list', 'error');
+    }
+});
+
+$('#refresh-lists')?.addEventListener('click', loadLists);
+
+// Add to List Modal Functions
+function openAddToListModal(product) {
+    state.productToAddToList = product;
+    $('#add-to-list-product-name').textContent = product.title;
+    
+    // Populate dropdown with existing lists
+    const dropdown = $('#select-list-dropdown');
+    dropdown.innerHTML = '<option value="">-- Choose a list --</option>';
+    
+    state.lists.forEach(list => {
+        const option = document.createElement('option');
+        option.value = list.id;
+        option.textContent = `${list.name} (${list.item_count} items)`;
+        dropdown.appendChild(option);
+    });
+    
+    $('#add-to-list-modal').classList.remove('hidden');
+}
+
+$('#close-add-modal')?.addEventListener('click', closeAddToListModal);
+$('#cancel-add-to-list')?.addEventListener('click', closeAddToListModal);
+
+function closeAddToListModal() {
+    $('#add-to-list-modal').classList.add('hidden');
+    $('#select-list-dropdown').value = '';
+    $('#add-to-list-notes').value = '';
+    state.productToAddToList = null;
+}
+
+$('#confirm-add-to-list')?.addEventListener('click', async () => {
+    const listId = $('#select-list-dropdown').value;
+    const notes = $('#add-to-list-notes').value.trim();
+    
+    if (!listId) {
+        toast('Please select a list', 'error');
+        return;
+    }
+    
+    if (!state.productToAddToList) {
+        toast('No product selected', 'error');
+        return;
+    }
+    
+    try {
+        await fetch(`/api/lists/${listId}/products`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                productId: state.productToAddToList.id,
+                notes
+            })
+        }).then(r => r.json());
+        toast('Product added to list', 'success');
+        closeAddToListModal();
+        // Refresh lists if we're on the lists view
+        if (state.view === 'lists') {
+            loadLists();
+        }
+    } catch (err) {
+        if (err.message && err.message.includes('already exists')) {
+            toast('Product is already in this list', 'error');
+        } else {
+            toast('Failed to add product to list', 'error');
+        }
+    }
+});
+
+// ---------- Bulk Add to List ----------
+$('#bulk-add-to-list')?.addEventListener('click', () => {
+    const count = state.selectedProductIds.size;
+    if (count === 0) {
+        toast('No products selected', 'error');
+        return;
+    }
+    
+    // Load lists if not already loaded
+    if (!state.lists.length) {
+        loadLists().then(() => openBulkAddModal(count));
+    } else {
+        openBulkAddModal(count);
+    }
+});
+
+function openBulkAddModal(count) {
+    $('#bulk-add-count').textContent = `${count} products selected for bulk add`;
+    
+    // Populate dropdown with existing lists
+    const dropdown = $('#bulk-select-list-dropdown');
+    dropdown.innerHTML = '<option value="">-- Choose a list --</option>';
+    
+    state.lists.forEach(list => {
+        const option = document.createElement('option');
+        option.value = list.id;
+        option.textContent = `${list.name} (${list.item_count} items)`;
+        dropdown.appendChild(option);
+    });
+    
+    $('#bulk-add-modal').classList.remove('hidden');
+}
+
+$('#close-bulk-modal')?.addEventListener('click', closeBulkAddModal);
+$('#cancel-bulk-add')?.addEventListener('click', closeBulkAddModal);
+
+function closeBulkAddModal() {
+    $('#bulk-add-modal').classList.add('hidden');
+    $('#bulk-select-list-dropdown').value = '';
+    $('#bulk-add-notes').value = '';
+}
+
+$('#confirm-bulk-add')?.addEventListener('click', async () => {
+    const listId = $('#bulk-select-list-dropdown').value;
+    const notes = $('#bulk-add-notes').value.trim();
+    
+    if (!listId) {
+        toast('Please select a list', 'error');
+        return;
+    }
+    
+    const selectedIds = Array.from(state.selectedProductIds);
+    if (selectedIds.length === 0) {
+        toast('No products selected', 'error');
+        return;
+    }
+    
+    try {
+        toast(`Adding ${selectedIds.length} products to list...`, 'info');
+        
+        const response = await fetch(`/api/lists/${listId}/products/bulk`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                productIds: selectedIds,
+                notes
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            toast(`Added ${result.added || selectedIds.length} products to list`, 'success');
+            closeBulkAddModal();
+            // Clear selection
+            state.selectedProductIds.clear();
+            document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = false);
+            updateSelectionUI();
+            // Refresh lists if we're on the lists view
+            if (state.view === 'lists') {
+                loadLists();
+            }
+        } else {
+            throw new Error(result.error || 'Failed to add products');
+        }
+    } catch (err) {
+        toast('Failed to bulk add products: ' + err.message, 'error');
+    }
+});
 
 // ---------- Init ----------
 loadConfig();

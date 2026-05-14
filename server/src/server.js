@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const setApiRoutes = require('./routes/api.routes');
 const setPipelineRoutes = require('./routes/pipeline.routes');
+const setListsRoutes = require('./routes/lists.routes');
 const db = require('./database/db');
 const config = require('./config/config');
 
@@ -27,6 +28,7 @@ if (config.imageStorage.enabled) {
 
 setApiRoutes(app);
 setPipelineRoutes(app);
+setListsRoutes(app);
 
 async function startServer() {
     try {
@@ -44,6 +46,9 @@ async function startServer() {
             console.log('  - GET    /api/pipeline/runs');
             console.log('  - GET    /api/pipeline/runs/:runId');
             console.log('  - GET    /api/scrape (legacy)');
+            console.log('  - GET    /api/lists (product lists)');
+            console.log('  - POST   /api/lists/:id/products');
+            console.log('  - GET    /api/lists/:id/export');
         });
     } catch (error) {
         console.error('[SERVER] Failed to start server:', error);

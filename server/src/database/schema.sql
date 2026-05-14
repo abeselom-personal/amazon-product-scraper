@@ -112,3 +112,28 @@ CREATE TABLE IF NOT EXISTS ai_processing_queue (
 
 CREATE INDEX IF NOT EXISTS idx_ai_queue_status ON ai_processing_queue(status, priority DESC);
 CREATE INDEX IF NOT EXISTS idx_ai_queue_product ON ai_processing_queue(product_id);
+
+-- Product lists for human curation (preferred lists)
+CREATE TABLE IF NOT EXISTS product_lists (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_lists_created ON product_lists(created_at DESC);
+
+-- List items (products in lists)
+CREATE TABLE IF NOT EXISTS list_items (
+    list_id TEXT NOT NULL,
+    product_id INTEGER NOT NULL,
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT,
+    PRIMARY KEY (list_id, product_id),
+    FOREIGN KEY (list_id) REFERENCES product_lists(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_list_items_list ON list_items(list_id);
+CREATE INDEX IF NOT EXISTS idx_list_items_product ON list_items(product_id);
