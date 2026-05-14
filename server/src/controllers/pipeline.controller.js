@@ -121,6 +121,90 @@ class PipelineController {
         }
     }
 
+    async scrapeKeywordNoAI(req, res) {
+        try {
+            const { keyword, region = 'UK', maxPages } = req.body;
+
+            if (!keyword) {
+                return res.status(400).json({ error: 'Keyword is required' });
+            }
+
+            const result = await pipeline.executeKeywordScrapeNoAI(
+                keyword, 
+                region, 
+                maxPages ? parseInt(maxPages, 10) : null
+            );
+
+            return res.json({
+                success: result.success,
+                runId: result.runId,
+                keyword: result.keyword,
+                region: result.region,
+                stats: result.stats,
+                runStats: result.runStats,
+                error: result.error
+            });
+
+        } catch (error) {
+            console.error('[API] Error in scrapeKeywordNoAI:', error);
+            return res.status(500).json({
+                error: 'Failed to execute scrape (no AI)',
+                details: error.message
+            });
+        }
+    }
+
+    async scrapeCategoryNoAI(req, res) {
+        try {
+            const { category, region = 'UK', maxPages } = req.body;
+            if (!category) return res.status(400).json({ error: 'category is required' });
+
+            const result = await pipeline.executeCategoryScrapeNoAI(
+                category,
+                region,
+                maxPages ? parseInt(maxPages, 10) : null
+            );
+
+            return res.json({
+                success: result.success,
+                runId: result.runId,
+                category: result.category,
+                region: result.region,
+                stats: result.stats,
+                runStats: result.runStats,
+                error: result.error,
+            });
+        } catch (error) {
+            console.error('[API] Error in scrapeCategoryNoAI:', error);
+            return res.status(500).json({ error: 'Failed to execute category scrape (no AI)', details: error.message });
+        }
+    }
+
+    async scrapeBatchNoAI(req, res) {
+        try {
+            const { keywords, region = 'UK', maxPages } = req.body;
+
+            if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
+                return res.status(400).json({ error: 'Keywords array is required' });
+            }
+
+            const result = await pipeline.executeBatchScrapeNoAI(
+                keywords, 
+                region, 
+                maxPages ? parseInt(maxPages, 10) : null
+            );
+
+            return res.json(result);
+
+        } catch (error) {
+            console.error('[API] Error in scrapeBatchNoAI:', error);
+            return res.status(500).json({
+                error: 'Failed to execute batch scrape (no AI)',
+                details: error.message
+            });
+        }
+    }
+
     async getTopProducts(req, res) {
         try {
             const limit = req.query.limit ? parseInt(req.query.limit, 10) : 100;

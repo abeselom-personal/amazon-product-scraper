@@ -13,6 +13,7 @@ const state = {
     runs: [],
     config: null,
     categories: [],
+    skipAI: false,           // skip AI enrichment for faster large-scale scraping
 };
 
 // ---------- Utilities ----------
@@ -107,6 +108,11 @@ $all('.mode-btn').forEach(btn => {
     });
 });
 
+// ---------- Skip AI toggle ----------
+$('#skip-ai-checkbox')?.addEventListener('change', e => {
+    state.skipAI = e.target.checked;
+});
+
 // ---------- Config bootstrap ----------
 async function loadConfig() {
     try {
@@ -160,7 +166,7 @@ const form = $('#search-form');
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const region = $('#region-select').value;
-    const maxPages = parseInt($('#pages-input').value, 10) || 3;
+    const maxPages = parseInt($('#pages-input').value, 10) || 400;
     const isCat = state.mode === 'category';
     const keyword = $('#keyword-input').value.trim();
     const category = $('#category-select').value;
@@ -179,9 +185,15 @@ form.addEventListener('submit', async (e) => {
     try {
         setTimeout(() => setProgress('Scraping product listings across pages…', 35), 1500);
         setTimeout(() => setProgress('Filtering by price & deduplicating…', 55), 4000);
-        setTimeout(() => setProgress('Validating with Google AI Studio (image + metadata)…', 80), 8000);
+        if (!state.skipAI) {
+            setTimeout(() => setProgress('Validating with Google AI Studio (image + metadata)…', 80), 8000);
+        } else {
+            setTimeout(() => setProgress('Skipping AI enrichment (faster mode)…', 80), 8000);
+        }
 
-        const endpoint = isCat ? '/scrape/category' : '/scrape';
+        // Choose endpoint based on skipAI flag
+        const endpointSuffix = state.skipAI ? '/no-ai' : '';
+        const endpoint = isCat ? `/scrape/category${endpointSuffix}` : `/scrape${endpointSuffix}`;
         const payload = isCat ? { category, region, maxPages } : { keyword, region, maxPages };
         const data = await api(endpoint, { method: 'POST', body: JSON.stringify(payload) });
 
@@ -198,7 +210,8 @@ form.addEventListener('submit', async (e) => {
         const range = f
             ? `${f.enableMinimumPrice ? '≥£' + f.minimumPriceGBP : ''}${f.enableMinimumPrice && f.enableMaximumPrice ? ' & ' : ''}${f.enableMaximumPrice ? '≤£' + f.maximumPriceGBP : ''}`
             : '';
-        toast(`✓ Pipeline complete: ${s.new || 0} new, ${s.updated || 0} updated, ${s.deduplicated || 0} dup, ${s.filtered || 0} filtered${range ? ' (' + range + ')' : ''}`, 'success', 5500);
+        const modeText = state.skipAI ? ' (no AI)' : '';
+        toast(`✓ Pipeline complete${modeText}: ${s.new || 0} new, ${s.updated || 0} updated, ${s.deduplicated || 0} dup, ${s.filtered || 0} filtered${range ? ' (' + range + ')' : ''}`, 'success', 5500);
         updateGlobalStats();
     } catch (err) {
         toast('✗ ' + err.message, 'error', 6000);

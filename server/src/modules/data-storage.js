@@ -169,7 +169,7 @@ class DataStorage {
 
     async enrichProduct(productId) {
         const product = await db.get('SELECT * FROM products WHERE id = ?', [productId]);
-        
+
         if (!product) {
             throw new Error(`Product not found: ${productId}`);
         }
@@ -290,6 +290,125 @@ class DataStorage {
         return { ...enrichedProduct, ...scores };
     }
 
+    async enrichProductHeuristic(productId) {
+        const product = await db.get('SELECT * FROM products WHERE id = ?', [productId]);
+
+        if (!product) {
+            throw new Error(`Product not found: ${productId}`);
+        }
+
+        product.images = safeParseJSON(product.images, []);
+
+        // Use heuristic bulk analysis only (no AI)
+        const bulkAnalysis = quantityExtractor.estimateBulkStatus(
+            product.title,
+            '',
+            product.price
+        );
+
+        const quantity = bulkAnalysis.quantity ?? null;
+        const isBulk = bulkAnalysis.isBulk;
+        const category = 'misc'; // Default category for heuristic mode
+        const aiConfidence = bulkAnalysis.confidence ?? 0.5;
+        const resaleSuitability = isBulk ? 'medium' : 'low';
+        const isResellable = isBulk;
+        const estimatedTotalWeightGrams = null;
+        const estimatedUnitWeightGrams = null;
+        const recommendedResalePackQuantity = null;
+        const estimatedResalePackWeightGrams = null;
+        const isResalePackShippableUnder100g = null;
+
+        const enrichedProduct = {
+            ...product,
+            quantity_estimate: quantity,
+            is_bulk: isBulk,
+            category: category,
+            ai_confidence_score: aiConfidence,
+            resale_suitability: resaleSuitability,
+            ai_classification: null,
+            ai_notes: 'Heuristic enrichment (no AI)',
+            ai_summary: 'Bulk status estimated from title patterns',
+            ai_signals: JSON.stringify(bulkAnalysis.signals || []),
+            ai_is_resellable: isResellable ? 1 : 0,
+            ai_estimated_total_weight_grams: estimatedTotalWeightGrams,
+            ai_estimated_unit_weight_grams: estimatedUnitWeightGrams,
+            ai_recommended_resale_pack_quantity: recommendedResalePackQuantity,
+            ai_estimated_resale_pack_weight_grams: estimatedResalePackWeightGrams,
+            ai_is_resale_pack_shippable_under_100g: isResalePackShippableUnder100g,
+            ai_estimated_weight_grams: estimatedResalePackWeightGrams,
+            ai_is_shippable_under_100g: isResalePackShippableUnder100g,
+            ai_provider: 'heuristic',
+        };
+
+        const unitPrice = product.price && quantity > 0 ? product.price / quantity : null;
+        enrichedProduct.unit_price = unitPrice;
+
+        const scores = scoringEngine.calculateFinalScore(enrichedProduct);
+
+        await db.run(
+            `UPDATE products SET
+                quantity_estimate = ?,
+                is_bulk = ?,
+                category = ?,
+                ai_confidence_score = ?,
+                resale_suitability = ?,
+                ai_classification = ?,
+                ai_notes = ?,
+                ai_summary = ?,
+                ai_signals = ?,
+                ai_is_resellable = ?,
+                ai_estimated_total_weight_grams = ?,
+                ai_estimated_unit_weight_grams = ?,
+                ai_recommended_resale_pack_quantity = ?,
+                ai_estimated_resale_pack_weight_grams = ?,
+                ai_is_resale_pack_shippable_under_100g = ?,
+                ai_estimated_weight_grams = ?,
+                ai_is_shippable_under_100g = ?,
+                ai_provider = ?,
+                ai_processed_at = datetime('now'),
+                unit_price = ?,
+                bulk_score = ?,
+                demand_score = ?,
+                trust_score = ?,
+                unit_margin_score = ?,
+                shipping_score = ?,
+                final_score = ?
+            WHERE id = ?`,
+            [
+                quantity,
+                isBulk ? 1 : 0,
+                category,
+                aiConfidence,
+                resaleSuitability,
+                enrichedProduct.ai_classification,
+                enrichedProduct.ai_notes,
+                enrichedProduct.ai_summary,
+                enrichedProduct.ai_signals,
+                enrichedProduct.ai_is_resellable,
+                enrichedProduct.ai_estimated_total_weight_grams,
+                enrichedProduct.ai_estimated_unit_weight_grams,
+                enrichedProduct.ai_recommended_resale_pack_quantity,
+                enrichedProduct.ai_estimated_resale_pack_weight_grams,
+                enrichedProduct.ai_is_resale_pack_shippable_under_100g,
+                enrichedProduct.ai_estimated_weight_grams,
+                enrichedProduct.ai_is_shippable_under_100g,
+                enrichedProduct.ai_provider,
+                unitPrice,
+                scores.bulk_score,
+                scores.demand_score,
+                scores.trust_score,
+                scores.unit_margin_score,
+                scores.shipping_score,
+                scores.final_score,
+                productId
+            ]
+        );
+
+        console.log(`[STORAGE] Enriched product ID ${productId} (heuristic): score=${scores.final_score}`);
+
+        return { ...enrichedProduct, ...scores };
+    }
+
     async enrichBatch(productIds) {
         console.log(`[STORAGE] Enriching batch of ${productIds.length} products`);
 
@@ -304,6 +423,22 @@ class DataStorage {
                 results.push(enriched);
             } catch (error) {
                 console.error(`[STORAGE] Error enriching product ${productId}:`, error.message);
+            }
+        }
+
+        return results;
+    }
+
+    async enrichBatchHeuristic(productIds) {
+        console.log(`[STORAGE] Enriching batch of ${productIds.length} products (heuristic mode)`);
+
+        const results = [];
+        for (const productId of productIds) {
+            try {
+                const enriched = await this.enrichProductHeuristic(productId);
+                results.push(enriched);
+            } catch (error) {
+                console.error(`[STORAGE] Error enriching product ${productId} (heuristic):`, error.message);
             }
         }
 

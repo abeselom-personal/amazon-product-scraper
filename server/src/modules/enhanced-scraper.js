@@ -338,6 +338,16 @@ class EnhancedScraper {
         const baseUrl = config.amazon.domains[region];
         if (!baseUrl) throw new Error(`Invalid region: ${region}`);
 
+        // Use config default if maxPages not provided
+        if (maxPages === null) {
+            maxPages = config.scraper.defaultMaxPages;
+        }
+        // Cap at hard max
+        if (maxPages > config.scraper.hardMaxPages) {
+            console.log(`[SCRAPER] Caping maxPages from ${maxPages} to ${config.scraper.hardMaxPages}`);
+            maxPages = config.scraper.hardMaxPages;
+        }
+
         const allProducts = [];
         let currentPage = 1;
         let totalPages = 1;
@@ -416,11 +426,21 @@ class EnhancedScraper {
             throw new Error(`Invalid region: ${region}`);
         }
 
+        // Use config default if maxPages not provided
+        if (maxPages === null) {
+            maxPages = config.scraper.defaultMaxPages;
+        }
+        // Cap at hard max
+        if (maxPages > config.scraper.hardMaxPages) {
+            console.log(`[SCRAPER] Caping maxPages from ${maxPages} to ${config.scraper.hardMaxPages}`);
+            maxPages = config.scraper.hardMaxPages;
+        }
+
         const allProducts = [];
         let currentPage = 1;
         let totalPages = 1;
 
-        console.log(`[SCRAPER] Starting scrape for keyword: "${keyword}" in region: ${region}`);
+        console.log(`[SCRAPER] Starting scrape for keyword: "${keyword}" in region: ${region} (max pages: ${maxPages})`);
 
         do {
             const encodedKeyword = encodeURIComponent(keyword);

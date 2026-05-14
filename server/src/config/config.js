@@ -2,6 +2,7 @@ const fs = require('fs');
 
 function detectChromium() {
     const candidates = [
+        '/snap/chromium/current/usr/lib/chromium-browser/chrome',
         '/usr/bin/chromium',
         '/usr/bin/chromium-browser',
         '/usr/bin/google-chrome',
@@ -15,7 +16,7 @@ function detectChromium() {
     for (const p of candidates) {
         try { if (fs.existsSync(p)) return p; } catch (_) {}
     }
-    return '/usr/bin/chromium';
+    return '/snap/chromium/current/usr/lib/chromium-browser/chrome';
 }
 
 module.exports = {
@@ -30,6 +31,8 @@ module.exports = {
         retryDelayMs: parseInt(process.env.RETRY_DELAY_MS || '2000', 10),
         rateLimitDelayMs: parseInt(process.env.RATE_LIMIT_MS || '1000', 10),
         timeout: parseInt(process.env.SCRAPER_TIMEOUT || '60000', 10),
+        defaultMaxPages: parseInt(process.env.DEFAULT_MAX_PAGES || '400', 10),
+        hardMaxPages: parseInt(process.env.HARD_MAX_PAGES || '2000', 10),
         userAgents: [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
