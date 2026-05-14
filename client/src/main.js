@@ -14,6 +14,7 @@ const state = {
     config: null,
     categories: [],
     skipAI: false,           // skip AI enrichment for faster large-scale scraping
+    selectedProductIds: new Set(), // selected products for owner selection
 };
 
 // ---------- Utilities ----------
@@ -113,6 +114,60 @@ $('#skip-ai-checkbox')?.addEventListener('change', e => {
     state.skipAI = e.target.checked;
 });
 
+// ---------- Product selection ----------
+document.addEventListener('change', e => {
+    if (e.target.classList.contains('product-checkbox')) {
+        const productId = e.target.dataset.id;
+        if (e.target.checked) {
+            state.selectedProductIds.add(productId);
+        } else {
+            state.selectedProductIds.delete(productId);
+        }
+        updateSelectionUI();
+    }
+});
+
+$('#select-all')?.addEventListener('click', () => {
+    document.querySelectorAll('.product-checkbox').forEach(cb => {
+        cb.checked = true;
+        state.selectedProductIds.add(cb.dataset.id);
+    });
+    updateSelectionUI();
+});
+
+$('#deselect-all')?.addEventListener('click', () => {
+    document.querySelectorAll('.product-checkbox').forEach(cb => {
+        cb.checked = false;
+        state.selectedProductIds.delete(cb.dataset.id);
+    });
+    updateSelectionUI();
+});
+
+$('#export-selected')?.addEventListener('click', async () => {
+    const selected = getSelectedProducts();
+    if (selected.length === 0) {
+        toast('No products selected', 'error');
+        return;
+    }
+    toast(`Exporting ${selected.length} selected products...`, 'info');
+    // TODO: Implement export functionality
+});
+
+function updateSelectionUI() {
+    const count = state.selectedProductIds.size;
+    const selectionBar = $('#selection-bar');
+    if (count > 0) {
+        selectionBar.classList.remove('hidden');
+        selectionBar.querySelector('.selection-count').textContent = `${count} selected`;
+    } else {
+        selectionBar.classList.add('hidden');
+    }
+}
+
+function getSelectedProducts() {
+    return state.products.filter(p => state.selectedProductIds.has(String(p.id)));
+}
+
 // ---------- Config bootstrap ----------
 async function loadConfig() {
     try {
@@ -200,9 +255,9 @@ form.addEventListener('submit', async (e) => {
         setProgress('Complete!', 100);
         renderSummary(data);
 
-        const topAfterRun = await api(`/products/top?limit=100`).catch(() => ({ products: [] }));
-        const filtered = (topAfterRun.products || []).filter(p => p.source_run_id === data.runId);
-        const toShow = filtered.length ? filtered : (topAfterRun.products || []).slice(0, 20);
+        // Show all products from the run, not just top products
+        const runProducts = await api(`/products/run/${data.runId}?limit=200`).catch(() => ({ products: [] }));
+        const toShow = runProducts.products || [];
         renderProducts($('#scrape-results'), toShow);
 
         const s = data.stats || {};
@@ -378,8 +433,11 @@ function productCard(p, rank) {
         : '';
 
     return `
-        <article class="product-card">
-            <span class="product-rank">#${rank}</span>
+        <article class="product-card" data-id="${p.id}">
+            <label class="product-select">
+                <input type="checkbox" class="product-checkbox" data-id="${p.id}" />
+                <span class="product-rank">#${rank}</span>
+            </label>
             ${score != null ? `<span class="product-score ${cls}">${fmtScore(score)}</span>` : ''}
             ${carousel}
             <div class="product-body">

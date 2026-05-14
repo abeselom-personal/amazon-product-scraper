@@ -3,6 +3,7 @@ const deduplication = require('./deduplication');
 const quantityExtractor = require('./quantity-extractor');
 const aiClassifier = require('./ai-classifier');
 const scoringEngine = require('./scoring-engine');
+const dimensionExtractor = require('./dimension-extractor');
 const config = require('../config/config');
 
 function safeParseJSON(s, fallback) {
@@ -306,17 +307,26 @@ class DataStorage {
             product.price
         );
 
+        // Extract weight and dimensions from description
+        const descriptionText = (product.description || '') + ' ' + (product.title || '');
+        const dimensionData = dimensionExtractor.extractAll(descriptionText);
+        const dimensionValidation = dimensionExtractor.validateExtraction(dimensionData, product);
+
         const quantity = bulkAnalysis.quantity ?? null;
         const isBulk = bulkAnalysis.isBulk;
         const category = 'misc'; // Default category for heuristic mode
         const aiConfidence = bulkAnalysis.confidence ?? 0.5;
         const resaleSuitability = isBulk ? 'medium' : 'low';
         const isResellable = isBulk;
-        const estimatedTotalWeightGrams = null;
-        const estimatedUnitWeightGrams = null;
+        
+        // Use extracted weight if available, otherwise null
+        const estimatedTotalWeightGrams = dimensionData.weight ? dimensionData.weight.grams : null;
+        const estimatedUnitWeightGrams = quantity && estimatedTotalWeightGrams ? estimatedTotalWeightGrams / quantity : null;
         const recommendedResalePackQuantity = null;
-        const estimatedResalePackWeightGrams = null;
-        const isResalePackShippableUnder100g = null;
+        const estimatedResalePackWeightGrams = estimatedTotalWeightGrams;
+        const isResalePackShippableUnder100g = estimatedTotalWeightGrams ? estimatedTotalWeightGrams <= 100 : null;
+
+        const dimensionInfo = dimensionData.dimensions ? JSON.stringify(dimensionData.dimensions) : null;
 
         const enrichedProduct = {
             ...product,
@@ -326,18 +336,19 @@ class DataStorage {
             ai_confidence_score: aiConfidence,
             resale_suitability: resaleSuitability,
             ai_classification: null,
-            ai_notes: 'Heuristic enrichment (no AI)',
-            ai_summary: 'Bulk status estimated from title patterns',
+            ai_notes: `Heuristic enrichment (no AI). Weight: ${dimensionValidation.weight.found ? 'extracted from description' : 'not found'}, Dimensions: ${dimensionValidation.dimensions.found ? 'extracted from description' : 'not found'}`,
+            ai_summary: `Bulk status estimated from title patterns${dimensionData.weight ? `. Weight: ${dimensionData.weight.text}` : ''}${dimensionData.dimensions ? `. Dimensions: ${dimensionData.dimensions.text}` : ''}`,
             ai_signals: JSON.stringify(bulkAnalysis.signals || []),
             ai_is_resellable: isResellable ? 1 : 0,
             ai_estimated_total_weight_grams: estimatedTotalWeightGrams,
             ai_estimated_unit_weight_grams: estimatedUnitWeightGrams,
             ai_recommended_resale_pack_quantity: recommendedResalePackQuantity,
             ai_estimated_resale_pack_weight_grams: estimatedResalePackWeightGrams,
-            ai_is_resale_pack_shippable_under_100g: isResalePackShippableUnder100g,
+            ai_is_resale_pack_shippable_under_100g: isResalePackShippableUnder100g == null ? null : (isResalePackShippableUnder100g ? 1 : 0),
             ai_estimated_weight_grams: estimatedResalePackWeightGrams,
-            ai_is_shippable_under_100g: isResalePackShippableUnder100g,
+            ai_is_shippable_under_100g: isResalePackShippableUnder100g == null ? null : (isResalePackShippableUnder100g ? 1 : 0),
             ai_provider: 'heuristic',
+            dimension_data: dimensionInfo,
         };
 
         const unitPrice = product.price && quantity > 0 ? product.price / quantity : null;
@@ -372,7 +383,8 @@ class DataStorage {
                 trust_score = ?,
                 unit_margin_score = ?,
                 shipping_score = ?,
-                final_score = ?
+                final_score = ?,
+                dimension_data = ?
             WHERE id = ?`,
             [
                 quantity,
@@ -400,11 +412,12 @@ class DataStorage {
                 scores.unit_margin_score,
                 scores.shipping_score,
                 scores.final_score,
+                dimensionInfo,
                 productId
             ]
         );
 
-        console.log(`[STORAGE] Enriched product ID ${productId} (heuristic): score=${scores.final_score}`);
+        console.log(`[STORAGE] Enriched product ID ${productId} (heuristic): score=${scores.final_score}, weight=${estimatedTotalWeightGrams}g, dimensions=${dimensionData.dimensions ? 'found' : 'not found'}`);
 
         return { ...enrichedProduct, ...scores };
     }
@@ -458,7 +471,7 @@ class DataStorage {
 
     async getTopProducts(limit = 100) {
         const priceWhere = this.buildPriceFilterWhere();
-        
+
         // Filter by enabled categories from config
         const categoryMap = {
             hardware: 'hardware',
@@ -474,17 +487,40 @@ class DataStorage {
             .filter(Boolean);
         const normalizedEnabled = Array.from(new Set(enabledCategories));
 
-        const categoryWhere = normalizedEnabled.length > 0 
+        const categoryWhere = normalizedEnabled.length > 0
             ? ` AND category IN (${normalizedEnabled.map(() => '?').join(',')})`
             : '';
         const categoryParams = normalizedEnabled.length > 0 ? normalizedEnabled : [];
-        
+
         const products = await db.all(
-            `SELECT * FROM products 
+            `SELECT * FROM products
              WHERE final_score IS NOT NULL${priceWhere.sql}${categoryWhere}
-             ORDER BY final_score DESC 
+             ORDER BY final_score DESC
              LIMIT ?`,
             [...priceWhere.params, ...categoryParams, limit]
+        );
+
+        return products.map(p => this.hydrate(p));
+    }
+
+    async getAllProducts(limit = 100, offset = 0) {
+        const products = await db.all(
+            `SELECT * FROM products
+             ORDER BY created_at DESC
+             LIMIT ? OFFSET ?`,
+            [limit, offset]
+        );
+
+        return products.map(p => this.hydrate(p));
+    }
+
+    async getProductsByRunId(runId, limit = 100) {
+        const products = await db.all(
+            `SELECT * FROM products
+             WHERE source_run_id = ?
+             ORDER BY created_at DESC
+             LIMIT ?`,
+            [runId, limit]
         );
 
         return products.map(p => this.hydrate(p));

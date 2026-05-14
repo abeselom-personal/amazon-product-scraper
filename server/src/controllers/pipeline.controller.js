@@ -229,6 +229,42 @@ class PipelineController {
         }
     }
 
+    async getAllProducts(req, res) {
+        try {
+            const limit = req.query.limit ? parseInt(req.query.limit, 10) : 100;
+            const offset = req.query.offset ? parseInt(req.query.offset, 10) : 0;
+
+            const products = await dataStorage.getAllProducts(limit, offset);
+            const baseUrl = this.getRequestBaseUrl(req);
+            const withLocalLinks = config.imageStorage.enabled
+                ? await imageStorage.attachLocalImageLinksBatch(products, { baseUrl })
+                : products;
+
+            return res.json(withLocalLinks);
+        } catch (error) {
+            console.error('[API] Error in getAllProducts:', error);
+            return res.status(500).json({ error: 'Failed to get all products', details: error.message });
+        }
+    }
+
+    async getProductsByRunId(req, res) {
+        try {
+            const { runId } = req.params;
+            const limit = req.query.limit ? parseInt(req.query.limit, 10) : 100;
+
+            const products = await dataStorage.getProductsByRunId(runId, limit);
+            const baseUrl = this.getRequestBaseUrl(req);
+            const withLocalLinks = config.imageStorage.enabled
+                ? await imageStorage.attachLocalImageLinksBatch(products, { baseUrl })
+                : products;
+
+            return res.json(withLocalLinks);
+        } catch (error) {
+            console.error('[API] Error in getProductsByRunId:', error);
+            return res.status(500).json({ error: 'Failed to get products by run ID', details: error.message });
+        }
+    }
+
     async exportTopProducts(req, res) {
         try {
             const limit = req.query.limit ? parseInt(req.query.limit, 10) : null;

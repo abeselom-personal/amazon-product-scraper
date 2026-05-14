@@ -17,6 +17,8 @@ function setPipelineRoutes(app) {
     router.post('/scrape/category/no-ai', pipelineController.scrapeCategoryNoAI.bind(pipelineController));
 
     router.get('/products/top', pipelineController.getTopProducts.bind(pipelineController));
+    router.get('/products/all', pipelineController.getAllProducts.bind(pipelineController));
+    router.get('/products/run/:runId', pipelineController.getProductsByRunId.bind(pipelineController));
 
     router.get('/export/top', pipelineController.exportTopProducts.bind(pipelineController));
     router.get('/export/category/:category', pipelineController.exportByCategory.bind(pipelineController));

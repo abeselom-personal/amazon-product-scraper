@@ -67,6 +67,7 @@ class Database {
             { table: 'products', column: 'ai_provider', type: 'TEXT' },
             { table: 'products', column: 'ai_processed_at', type: 'DATETIME' },
             { table: 'products', column: 'shipping_score', type: 'REAL' },
+            { table: 'products', column: 'dimension_data', type: 'TEXT' },
             { table: 'scraping_runs', column: 'category', type: 'TEXT' },
             { table: 'scraping_runs', column: 'run_type', type: "TEXT DEFAULT 'keyword'" },
             { table: 'scraping_runs', column: 'products_filtered', type: 'INTEGER DEFAULT 0' },
