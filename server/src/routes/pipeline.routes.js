@@ -22,6 +22,7 @@ function setPipelineRoutes(app) {
 
     router.get('/export/top', pipelineController.exportTopProducts.bind(pipelineController));
     router.get('/export/category/:category', pipelineController.exportByCategory.bind(pipelineController));
+    router.get('/export/run/:runId', pipelineController.exportByRunId.bind(pipelineController));
 
     router.get('/runs', pipelineController.getRunHistory.bind(pipelineController));
     router.get('/runs/:runId', pipelineController.getRunStats.bind(pipelineController));

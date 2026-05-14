@@ -168,6 +168,77 @@ function getSelectedProducts() {
     return state.products.filter(p => state.selectedProductIds.has(String(p.id)));
 }
 
+async function loadRuns() {
+    try {
+        const data = await api('/runs?limit=20');
+        state.runs = data.runs || [];
+        const list = $('#runs-list');
+
+        if (!state.runs.length) {
+            list.innerHTML = '<div class="empty-state">No runs yet. Start a scrape to see history.</div>';
+            return;
+        }
+
+        list.innerHTML = state.runs.map(run => {
+            const date = new Date(run.created_at).toLocaleString();
+            const statusClass = run.status === 'completed' ? 'success' : run.status === 'failed' ? 'error' : 'pending';
+            const keyword = run.keyword || run.category || 'Unknown';
+            const type = run.run_type || 'keyword';
+
+            return `
+                <article class="run-card" data-id="${run.id}">
+                    <div class="run-header">
+                        <span class="run-status ${statusClass}">${run.status.toUpperCase()}</span>
+                        <span class="run-date">${date}</span>
+                    </div>
+                    <div class="run-details">
+                        <h3>${escapeHtml(keyword)}</h3>
+                        <p>Type: ${type} · Region: ${run.region || 'UK'} · ID: ${run.id.slice(0, 8)}...</p>
+                        <div class="run-stats">
+                            <span>Scraped: ${run.products_scraped || 0}</span>
+                            <span>New: ${run.products_new || 0}</span>
+                            <span>Updated: ${run.products_updated || 0}</span>
+                            <span>Filtered: ${run.products_filtered || 0}</span>
+                        </div>
+                        <div class="run-actions">
+                            <button class="export-run-btn" data-run-id="${run.id}">⬇ Export</button>
+                            <button class="view-run-btn" data-run-id="${run.id}">👁 View Products</button>
+                        </div>
+                    </div>
+                </article>
+            `;
+        }).join('');
+
+        // Add event listeners for export buttons
+        document.querySelectorAll('.export-run-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const runId = e.target.dataset.runId;
+                toast('Exporting run products...', 'info');
+                window.location.href = `/api/pipeline/export/run/${runId}`;
+            });
+        });
+
+        // Add event listeners for view buttons
+        document.querySelectorAll('.view-run-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const runId = e.target.dataset.runId;
+                try {
+                    const products = await api(`/products/run/${runId}?limit=200`);
+                    state.products = products;
+                    state.page = 1;
+                    renderProducts($('#results-list'), products);
+                    switchView('results');
+                    toast(`Loaded ${products.length} products from run`, 'success');
+                } catch (err) {
+                    toast('Failed to load run products', 'error');
+                }
+            });
+        });
+    } catch (err) {
+        toast('Failed to load run history', 'error');
+    }
+}
+
 // ---------- Config bootstrap ----------
 async function loadConfig() {
     try {
@@ -545,43 +616,6 @@ async function doExport() {
         btn.disabled = false;
         btn.textContent = orig;
     }
-}
-
-// ---------- Runs view ----------
-$('#refresh-runs').addEventListener('click', loadRuns);
-
-async function loadRuns() {
-    const list = $('#runs-list');
-    list.innerHTML = `<div class="empty-state"><h3>Loading…</h3></div>`;
-    try {
-        const data = await api('/runs?limit=25');
-        state.runs = data.runs || [];
-        if (!state.runs.length) {
-            list.innerHTML = `<div class="empty-state"><h3>No runs yet</h3><p>Run your first scrape from the Search tab.</p></div>`;
-            return;
-        }
-        list.innerHTML = state.runs.map(runCard).join('');
-    } catch (err) {
-        list.innerHTML = `<div class="empty-state"><h3>Error</h3><p>${escapeHtml(err.message)}</p></div>`;
-    }
-}
-
-function runCard(r) {
-    const started = new Date(r.started_at + 'Z').toLocaleString();
-    const label = r.run_type === 'category' && r.category ? `📂 ${r.category}` : `🔍 ${r.keyword}`;
-    return `
-        <div class="run-card">
-            <div>
-                <div class="keyword">${escapeHtml(label)}</div>
-                <span class="subtle">${r.region} · ${started} · ${r.id.slice(0,8)}</span>
-            </div>
-            <div class="metric"><strong>${r.products_scraped || 0}</strong>Scraped</div>
-            <div class="metric"><strong>${r.products_new || 0}</strong>New</div>
-            <div class="metric"><strong>${r.products_updated || 0}</strong>Updated</div>
-            <div class="metric"><strong>${r.products_filtered || 0}</strong>Filtered</div>
-            <span class="status-pill status-${r.status}">${r.status}</span>
-        </div>
-    `;
 }
 
 // ---------- Global stats ----------
