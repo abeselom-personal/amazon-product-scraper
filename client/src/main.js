@@ -4,7 +4,7 @@ const API = '/api/pipeline';
 const state = {
     view: 'search',
     mode: 'keyword',         // 'keyword' | 'category'
-    topLimit: 100,
+    topLimit: 99999,
     pageSize: 20,
     page: 1,
     categoryFilterMode: 'ai', // 'ai' | 'scrape'
@@ -662,7 +662,7 @@ async function doExport() {
 // ---------- Global stats ----------
 async function updateGlobalStats() {
     try {
-        const data = await api('/products/top?limit=500');
+        const data = await api('/products/top?limit=99999');
         const products = data.products || [];
         $('#stat-total').textContent = products.length;
         $('#stat-bulk').textContent = products.filter(p => p.is_bulk).length;
